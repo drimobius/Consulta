@@ -3,20 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>SUPER ALCANCES</title>
+    <title>📦 Alcance de Inventarios</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        :root { --bg: #f0f2f5; --card: #ffffff; --text: #212529; }
-        body.dark-mode { --bg: #0f0f0f; --card: #1a1a1a; --text: #f0f0f0; }
+        :root { --bg: #f0f2f5; --card: #ffffff; --text: #212529; --muted: #6c757d; }
+        body.dark-mode { --bg: #0f0f0f; --card: #1a1a1a; --text: #f0f0f0; --muted: #aaa; }
+        
         body { background-color: var(--bg); color: var(--text); transition: 0.3s; min-height: 100vh; overflow-x: hidden; }
         .card { background-color: var(--card); border: none; border-radius: 20px; }
         .theme-toggle { position: fixed; top: 15px; right: 15px; font-size: 1.5rem; cursor: pointer; z-index: 10001; }
         
+        /* Ajuste para texto silenciado en modo oscuro */
+        #lastUploadLabel { color: var(--muted); transition: 0.3s; }
+
         /* CRONÓMETRO GIGANTE */
         #timerOverlay {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: #000; z-index: 9999; flex-direction: column; align-items: center; justify-content: center;
+            color: #fff;
         }
+        #timerSebango { font-size: clamp(2rem, 8vw, 4rem); color: #fff; opacity: 0.9; text-transform: uppercase; }
         #timerDisplay { font-size: clamp(4rem, 15vw, 8rem); font-family: 'Courier New', monospace; font-weight: bold; }
         #timerEmoji { font-size: 5rem; }
         #closeTimer { position: absolute; top: 20px; right: 30px; font-size: 4rem; cursor: pointer; color: #fff; line-height: 0.5; }
@@ -35,46 +41,49 @@
 
     <div id="timerOverlay">
         <div id="closeTimer" onclick="cerrarCronometro()">&times;</div>
-        <div id="timerEmoji">🧘</div>
+        <div id="timerSebango" class="fw-bold mb-2">--</div> <div id="timerEmoji">🧘</div>
         <div id="timerDisplay">00:00:00</div>
         <div id="timerStatus" class="mt-2 text-uppercase fw-bold h4"></div>
-        <button class="btn btn-outline-light mt-5 px-5" onclick="cerrarCronometro()">SALIR</button>
+        <button class="btn btn-outline-light mt-5 px-5 rounded-pill" onclick="cerrarCronometro()">SALIR</button>
     </div>
 
     <div class="container" style="max-width: 500px;">
-        <h2 class="text-center mb-4 fw-bold">📦 Consulta de Invetnarios</h2>
+        <h2 class="text-center mb-4 fw-bold">📦 Alcance de Inventarios</h2>
         
-        <div class="card p-4 shadow-lg mb-4">
+        <div class="card p-4 shadow-lg mb-4 border-0">
             <div class="input-group input-group-lg">
                 <input type="text" id="searchInput" class="form-control text-uppercase border-0 bg-light" placeholder="SEBANGO (Ej: K056)">
-                <button class="btn btn-primary px-4" onclick="buscarDato()">🔎</button>
+                <button class="btn btn-primary px-4 shadow-sm" onclick="buscarDato()">🔎</button>
             </div>
         </div>
 
-        <div id="resultArea" class="card p-4 shadow-lg text-center" style="display:none;">
+        <div id="resultArea" class="card p-4 shadow-lg text-center border-0" style="display:none;">
             <div id="mainEmoji" style="font-size: 4rem;">🧘</div>
             <p class="text-muted small fw-bold mb-0">ALCANCE RESTANTE:</p>
             <div id="resultadoTexto" class="big-text my-2">--</div>
             <div id="statusLabel" class="fw-bold text-uppercase mb-1 small"></div>
             
-            <div class="progress mb-2">
+            <div class="progress mb-3">
                 <div id="progressBar" class="progress-bar" role="progressbar" style="width: 100%"></div>
             </div>
 
-            <p id="lastUploadLabel" class="text-muted mb-4" style="font-size: 0.7rem; font-style: italic;"></p>
+            <p id="lastUploadLabel" class="mb-4 small fw-semibold" style="font-size: 0.75rem; font-style: italic;"></p>
             
             <button onclick="abrirCronometro()" class="btn btn-dark w-100 py-3 fw-bold rounded-pill shadow">
                 ⏱️ PANTALLA COMPLETA
             </button>
         </div>
 
-        <div id="errorArea" class="alert alert-danger mt-3 d-none text-center rounded-4">No se encontró el código.</div>
+        <div id="errorArea" class="alert alert-danger mt-3 d-none text-center rounded-4 fw-bold">
+            Sebango no encontrado, CONTACTA A PC
+        </div>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-app.js";
         import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-firestore.js";
 
+        // Configuración de Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyCAQLyNPSiyjKKPz3vyHr1rdVa0dBz7dq4",
             authDomain: "logistica-ktmex.firebaseapp.com",
@@ -92,6 +101,7 @@
         let deadline = null;
         let scopeOriginal = 0;
         let timerInterval = null;
+        let sebangoActual = "";
 
         function toggleTheme() {
             document.body.classList.toggle('dark-mode');
@@ -106,6 +116,7 @@
                 const docSnap = await window.getDoc(window.doc(window.db, "conveyors", input));
                 if (docSnap.exists()) {
                     const data = docSnap.data();
+                    sebangoActual = input;
                     scopeOriginal = data.scope;
                     
                     // Cálculo de Deadline basado en estampa de subida de App A
@@ -116,7 +127,9 @@
                         day: '2-digit', month: '2-digit', year: 'numeric',
                         hour: '2-digit', minute: '2-digit'
                     });
+                    
                     document.getElementById('lastUploadLabel').innerText = "Última carga de archivo en App A: " + fechaCarga;
+                    document.getElementById('timerSebango').innerText = sebangoActual; // Preparar el overlay
 
                     actualizarUI();
                     document.getElementById('resultArea').style.display = 'block';
@@ -125,7 +138,10 @@
                     document.getElementById('resultArea').style.display = 'none';
                     document.getElementById('errorArea').classList.remove('d-none');
                 }
-            } catch (e) { alert("Error de conexión."); }
+            } catch (e) { 
+                console.error(e);
+                alert("Error de conexión con la base de datos de PC."); 
+            }
         }
 
         function getUrgencia(horas) {
@@ -148,7 +164,7 @@
             document.getElementById('statusLabel').style.color = status.c;
             
             const bar = document.getElementById('progressBar');
-            bar.style.width = Math.min(100, (horas / scopeOriginal) * 100) + "%";
+            bar.style.width = Math.max(5, Math.min(100, (horas / scopeOriginal) * 100)) + "%";
             bar.style.backgroundColor = status.c;
 
             if (status.b) txt.classList.add('critical');
@@ -194,8 +210,11 @@
 
             actualizarUI();
         }
+
+        // Listener para buscar con Enter
+        document.getElementById('searchInput').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') buscarDato();
+        });
     </script>
 </body>
-
 </html>
-
